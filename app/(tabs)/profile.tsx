@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { fetchStations } from '@/services/api';
 import { useFavoritesStore } from '@/stores/favorites';
 import { useSettingsStore } from '@/stores/settings';
+import { useAuthStore } from '@/stores/auth';
 import { getCheapestPrice, formatPrice } from '@/utils/fuel';
 import { FUEL_TYPE_LABELS } from '@/utils/constants';
 import { FuelType } from '@/types';
@@ -26,8 +27,6 @@ const LOYALTY_TIERS = [
   { name: 'Gold',   min: 2000, max: Infinity, color: '#f59e0b', emoji: '🥇' },
 ];
 
-const POINTS = 0; // Will come from real auth/DB later
-
 function getLoyaltyTier(points: number) {
   return LOYALTY_TIERS.find((t) => points >= t.min && points <= t.max) ?? LOYALTY_TIERS[0];
 }
@@ -36,6 +35,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { favorites, toggleFavorite } = useFavoritesStore();
   const { defaultFuelType, setDefaultFuelType } = useSettingsStore();
+  const { user, profile, signOut } = useAuthStore();
 
   const { data: stations = [] } = useQuery({
     queryKey: ['stations'],
@@ -48,11 +48,19 @@ export default function ProfileScreen() {
     [stations, favorites]
   );
 
+  const POINTS = profile?.loyalty_points ?? 0;
   const tier = getLoyaltyTier(POINTS);
   const nextTier = LOYALTY_TIERS[LOYALTY_TIERS.indexOf(tier) + 1];
   const progressToNext = nextTier
     ? Math.min((POINTS - tier.min) / (nextTier.min - tier.min), 1)
     : 1;
+
+  const handleSignOut = () => {
+    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign out', style: 'destructive', onPress: signOut },
+    ]);
+  };
 
   return (
     <ScrollView
@@ -260,6 +268,41 @@ export default function ProfileScreen() {
             <Text style={styles.aboutRowText}>Version</Text>
             <Text style={styles.aboutRowValue}>1.0.0 (Beta)</Text>
           </View>
+        </View>
+      </View>
+
+      {/* ── Account ────────────────────────────────────────── */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>👤 Account</Text>
+        <View style={styles.aboutCard}>
+          <View style={styles.aboutRow}>
+            <Text style={styles.aboutRowText}>Signed in as</Text>
+            <Text style={[styles.aboutRowValue, { maxWidth: 180 }]} numberOfLines={1}>
+              {user?.email ?? 'Guest'}
+            </Text>
+          </View>
+          {profile?.display_name ? (
+            <View style={styles.aboutRow}>
+              <Text style={styles.aboutRowText}>Name</Text>
+              <Text style={styles.aboutRowValue}>{profile.display_name}</Text>
+            </View>
+          ) : null}
+          {profile?.is_operator ? (
+            <View style={styles.aboutRow}>
+              <Text style={styles.aboutRowText}>Account type</Text>
+              <View style={styles.operatorBadge}>
+                <Text style={styles.operatorBadgeText}>⛽ Station Operator</Text>
+              </View>
+            </View>
+          ) : null}
+          <TouchableOpacity
+            style={[styles.aboutRow, { borderBottomWidth: 0 }]}
+            onPress={handleSignOut}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.aboutRowText, { color: '#ef4444' }]}>Sign out</Text>
+            <FontAwesome name="sign-out" size={14} color="#ef4444" />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -523,6 +566,16 @@ const styles = StyleSheet.create({
   aboutRowText: { fontSize: 14, fontWeight: '500', color: '#374151' },
   aboutRowRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   aboutRowValue: { fontSize: 13, color: '#9CA3AF', fontWeight: '500' },
+
+  operatorBadge: {
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  operatorBadgeText: { fontSize: 11, fontWeight: '700', color: '#16a34a' },
 
   // Branding footer
   branding: { alignItems: 'center', paddingVertical: 28 },
