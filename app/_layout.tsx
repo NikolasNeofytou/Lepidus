@@ -67,10 +67,7 @@ function RootLayoutNav() {
 
     const inAuthGroup = segments[0] === '(auth)';
 
-    if (!session && !inAuthGroup) {
-      // Not signed in and not on an auth screen → go to login
-      router.replace('/(auth)/login');
-    } else if (session && inAuthGroup) {
+    if (session && inAuthGroup) {
       // Signed in but still on auth screen → go to app
       router.replace('/(tabs)');
     }

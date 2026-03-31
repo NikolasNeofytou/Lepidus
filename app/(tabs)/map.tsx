@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import { MapView, Marker } from '@/components/MapViewAdapter';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -54,7 +54,7 @@ const PriceMarker = React.memo(({
 });
 
 export default function MapScreen() {
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [mapReady, setMapReady] = useState(false);
