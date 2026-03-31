@@ -68,6 +68,35 @@ export async function fetchPromotions(): Promise<Promotion[]> {
   }
 }
 
+export async function fetchStationFeatures(stationId: string): Promise<string[]> {
+  try {
+    const { data, error } = await supabase
+      .from('station_features')
+      .select('feature')
+      .eq('station_id', stationId);
+    if (error) throw error;
+    return (data ?? []).map((r: any) => r.feature);
+  } catch {
+    return [];
+  }
+}
+
+export async function logStationEvent(
+  stationId: string,
+  eventType: 'view' | 'favorite' | 'directions'
+): Promise<void> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('station_events').insert({
+      station_id: stationId,
+      event_type: eventType,
+      user_id: user?.id ?? null,
+    });
+  } catch {
+    // analytics are non-critical, fail silently
+  }
+}
+
 export async function fetchPriceHistory(
   stationId: string,
   fuelType: FuelType,

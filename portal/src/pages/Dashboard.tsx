@@ -8,21 +8,41 @@ interface LatestPrice {
   fetched_at: string;
 }
 
+interface EventCounts {
+  views7d: number;
+  favorites7d: number;
+  directions7d: number;
+  views30d: number;
+}
+
 interface StationWithPrices extends Station {
   prices: LatestPrice[];
   promotions: Promotion[];
   features: string[];
-  favoriteCount: number;
+  events: EventCounts;
 }
 
 function StatCard({ label, value, sub, accent = false }: {
   label: string; value: string | number; sub?: string; accent?: boolean;
 }) {
   return (
-    <div className={`rounded-2xl p-5 border ${accent ? 'bg-brand-600 border-brand-700' : 'bg-white border-gray-100'}`}>
-      <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${accent ? 'text-brand-100' : 'text-gray-500'}`}>{label}</p>
+    <div className={`rounded-2xl p-5 border ${accent ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
+      <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${accent ? 'text-gray-400' : 'text-gray-500'}`}>{label}</p>
       <p className={`text-3xl font-black tracking-tight ${accent ? 'text-white' : 'text-gray-900'}`}>{value}</p>
-      {sub && <p className={`text-xs mt-1 ${accent ? 'text-brand-100' : 'text-gray-400'}`}>{sub}</p>}
+      {sub && <p className={`text-xs mt-1 ${accent ? 'text-gray-500' : 'text-gray-400'}`}>{sub}</p>}
+    </div>
+  );
+}
+
+function AnalyticBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-gray-500 w-20 text-right flex-shrink-0">{label}</span>
+      <div className="flex-1 bg-gray-100 rounded-full h-2">
+        <div className="h-2 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+      </div>
+      <span className="text-sm font-bold text-gray-900 w-8 flex-shrink-0">{value}</span>
     </div>
   );
 }
@@ -40,32 +60,40 @@ export default function Dashboard() {
 
       setUserName(user.user_metadata?.display_name ?? user.email ?? '');
 
-      // Get operator's stations
       const { data: links } = await supabase
         .from('operator_stations')
         .select('station_id')
         .eq('operator_id', user.id);
 
-      if (!links || links.length === 0) {
-        setLoading(false);
-        return;
-      }
-
+      if (!links || links.length === 0) { setLoading(false); return; }
       const stationIds = links.map(l => l.station_id);
 
-      const [stationsRes, pricesRes, promoRes, featuresRes] = await Promise.all([
+      const [stationsRes, pricesRes, promoRes, featuresRes, eventsRes] = await Promise.all([
         supabase.from('stations').select('*').in('id', stationIds),
         supabase.from('latest_prices').select('*').in('station_id', stationIds),
         supabase.from('promotions').select('*').in('station_id', stationIds).eq('is_active', true),
         supabase.from('station_features').select('*').in('station_id', stationIds),
+        supabase.from('station_event_counts').select('*').in('station_id', stationIds),
       ]);
+
+      const eventData = eventsRes.data ?? [];
+
+      const getEventCount = (stationId: string, type: string, period: 'last_7d' | 'last_30d') => {
+        const row = eventData.find(e => e.station_id === stationId && e.event_type === type);
+        return row ? (row[period] as number) : 0;
+      };
 
       const result: StationWithPrices[] = (stationsRes.data ?? []).map(s => ({
         ...s,
         prices: (pricesRes.data ?? []).filter(p => p.station_id === s.id),
         promotions: (promoRes.data ?? []).filter(p => p.station_id === s.id),
         features: (featuresRes.data ?? []).filter(f => f.station_id === s.id).map(f => f.feature),
-        favoriteCount: 0, // placeholder until user_favorites is queryable
+        events: {
+          views7d:      getEventCount(s.id, 'view', 'last_7d'),
+          favorites7d:  getEventCount(s.id, 'favorite', 'last_7d'),
+          directions7d: getEventCount(s.id, 'directions', 'last_7d'),
+          views30d:     getEventCount(s.id, 'view', 'last_30d'),
+        },
       }));
 
       setStations(result);
@@ -81,7 +109,6 @@ export default function Dashboard() {
     );
   }
 
-  // No station claimed yet
   if (stations.length === 0) {
     return (
       <div className="p-8 max-w-2xl mx-auto flex flex-col items-center justify-center min-h-screen text-center">
@@ -90,7 +117,7 @@ export default function Dashboard() {
         <p className="text-gray-500 mb-8">Claim your station to start managing deals and appearing in the Lepidus marketplace.</p>
         <button
           onClick={() => navigate('/claim')}
-          className="bg-brand-600 hover:bg-brand-700 text-white font-bold px-8 py-3.5 rounded-xl transition-colors shadow-lg shadow-brand-600/30"
+          className="bg-gray-900 hover:bg-gray-800 text-white font-bold px-8 py-3.5 rounded-xl transition-colors"
         >
           Claim my station →
         </button>
@@ -98,6 +125,9 @@ export default function Dashboard() {
     );
   }
 
+  const totalViews7d = stations.reduce((n, s) => n + s.events.views7d, 0);
+  const totalFavorites7d = stations.reduce((n, s) => n + s.events.favorites7d, 0);
+  const totalDirections7d = stations.reduce((n, s) => n + s.events.directions7d, 0);
   const totalActiveDeals = stations.reduce((n, s) => n + s.promotions.length, 0);
 
   return (
@@ -112,10 +142,10 @@ export default function Dashboard() {
 
       {/* Summary stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Stations managed" value={stations.length} accent />
+        <StatCard label="Profile views" value={totalViews7d} sub="Last 7 days" accent />
         <StatCard label="Active deals" value={totalActiveDeals} sub="Live on marketplace" />
-        <StatCard label="Fuel types tracked" value={stations.reduce((n, s) => n + s.prices.length, 0)} />
-        <StatCard label="Services listed" value={stations.reduce((n, s) => n + s.features.length, 0)} sub="Across all stations" />
+        <StatCard label="Favourited" value={totalFavorites7d} sub="Last 7 days" />
+        <StatCard label="Directions tapped" value={totalDirections7d} sub="Last 7 days" />
       </div>
 
       {/* Station cards */}
@@ -146,6 +176,30 @@ export default function Dashboard() {
                   Edit
                 </button>
               </div>
+            </div>
+
+            {/* Analytics */}
+            <div className="p-6 border-b border-gray-50">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">
+                Activity — last 7 days
+              </p>
+              <div className="space-y-3">
+                {(() => {
+                  const max = Math.max(station.events.views7d, station.events.favorites7d, station.events.directions7d, 1);
+                  return (
+                    <>
+                      <AnalyticBar label="Profile views" value={station.events.views7d} max={max} color="#6366f1" />
+                      <AnalyticBar label="Favourites" value={station.events.favorites7d} max={max} color="#f43f5e" />
+                      <AnalyticBar label="Directions" value={station.events.directions7d} max={max} color="#16a34a" />
+                    </>
+                  );
+                })()}
+              </div>
+              {station.events.views30d > 0 && (
+                <p className="text-xs text-gray-400 mt-4">
+                  {station.events.views30d} profile views in the last 30 days
+                </p>
+              )}
             </div>
 
             {/* Prices grid */}
@@ -202,7 +256,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Help box */}
+      {/* Tips */}
       <div className="mt-8 p-5 bg-gray-900 rounded-2xl flex items-start gap-4">
         <span className="text-2xl">💡</span>
         <div>

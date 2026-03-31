@@ -36,3 +36,14 @@ export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
 export const PRICE_STALE_TIME = 15 * 60 * 1000; // 15 minutes
+
+export const STATION_FEATURE_LABELS: Record<string, { emoji: string; label: string }> = {
+  car_wash:          { emoji: '🚿', label: 'Car Wash' },
+  cafe:              { emoji: '☕', label: 'Café' },
+  atm:               { emoji: '🏧', label: 'ATM' },
+  open_24h:          { emoji: '🌙', label: 'Open 24h' },
+  air:               { emoji: '💨', label: 'Free Air' },
+  ev_charging:       { emoji: '⚡', label: 'EV Charging' },
+  convenience_store: { emoji: '🛒', label: 'Mini Market' },
+  restroom:          { emoji: '🚻', label: 'Restroom' },
+};
