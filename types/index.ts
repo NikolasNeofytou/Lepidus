@@ -46,3 +46,19 @@ export interface UserSettings {
 }
 
 export type SortMode = 'price' | 'distance' | 'name';
+
+export interface Promotion {
+  id: string;
+  stationId: string;
+  stationName: string;
+  stationBrand: string;
+  stationDistrict: string;
+  title: string;
+  description: string | null;
+  badgeText: string | null;
+  fuelType: FuelType | 'all';
+  discountType: string;
+  discountValue: number | null;
+  expiresAt: string | null;
+  createdAt: string;
+}

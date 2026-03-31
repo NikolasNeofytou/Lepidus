@@ -12,7 +12,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 
-import { fetchStations } from '@/services/api';
+import { fetchStations, fetchPromotions } from '@/services/api';
 import { formatPrice, getAveragePrice, getDistrictStats } from '@/utils/fuel';
 import { FUEL_TYPE_LABELS } from '@/utils/constants';
 import { useFavoritesStore } from '@/stores/favorites';
@@ -39,7 +39,14 @@ export default function StationDetailScreen() {
     staleTime: 15 * 60 * 1000,
   });
 
+  const { data: allPromotions = [] } = useQuery({
+    queryKey: ['promotions'],
+    queryFn: fetchPromotions,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const station = stations.find((s) => s.id === id);
+  const stationPromos = allPromotions.filter((p) => p.stationId === id);
 
   if (!station) {
     return (
@@ -182,6 +189,40 @@ export default function StationDetailScreen() {
           );
         })}
       </View>
+
+      {/* ── Active offers ──────────────────────────────────────── */}
+      {stationPromos.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Active Offers</Text>
+          <View style={styles.offersContainer}>
+            {stationPromos.map((promo) => (
+              <View key={promo.id} style={styles.offerCard}>
+                <View style={styles.offerLeft}>
+                  <View style={styles.offerDot} />
+                </View>
+                <View style={styles.offerBody}>
+                  <Text style={styles.offerTitle}>{promo.title}</Text>
+                  {promo.description ? (
+                    <Text style={styles.offerDesc}>{promo.description}</Text>
+                  ) : null}
+                  <View style={styles.offerMeta}>
+                    {promo.badgeText && (
+                      <View style={styles.offerBadge}>
+                        <Text style={styles.offerBadgeText}>{promo.badgeText}</Text>
+                      </View>
+                    )}
+                    {promo.expiresAt && (
+                      <Text style={styles.offerExpiry}>
+                        Expires {new Date(promo.expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        </>
+      )}
 
       {/* ── Actions ────────────────────────────────────────────── */}
       <View style={styles.actions}>
@@ -421,4 +462,42 @@ const styles = StyleSheet.create({
   infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   infoIcon: { marginTop: 2, width: 16 },
   infoText: { flex: 1, fontSize: 13, color: '#6b7280', lineHeight: 18 },
+
+  // Offers
+  offersContainer: {
+    marginHorizontal: 16,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(229,231,235,0.5)',
+    overflow: 'hidden',
+  },
+  offerCard: {
+    flexDirection: 'row',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    gap: 12,
+  },
+  offerLeft: { paddingTop: 5 },
+  offerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#16a34a',
+  },
+  offerBody: { flex: 1, gap: 4 },
+  offerTitle: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  offerDesc: { fontSize: 13, color: '#6b7280', lineHeight: 18 },
+  offerMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  offerBadge: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  offerBadgeText: { fontSize: 11, fontWeight: '700', color: '#92400E' },
+  offerExpiry: { fontSize: 11, color: '#9ca3af', fontWeight: '500' },
 });

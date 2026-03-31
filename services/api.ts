@@ -1,4 +1,4 @@
-import { Station, FuelType } from '@/types';
+import { Station, FuelType, Promotion } from '@/types';
 import { supabase } from './supabase';
 import { MOCK_STATIONS } from './mockData';
 
@@ -36,6 +36,35 @@ export async function fetchStations(): Promise<Station[]> {
   } catch (error) {
     console.warn('Supabase fetch failed, using mock data:', error);
     return MOCK_STATIONS;
+  }
+}
+
+export async function fetchPromotions(): Promise<Promotion[]> {
+  try {
+    const { data, error } = await supabase
+      .from('active_promotions')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return (data ?? []).map((row: any) => ({
+      id: row.id,
+      stationId: row.station_id,
+      stationName: row.station_name,
+      stationBrand: row.station_brand,
+      stationDistrict: row.station_district,
+      title: row.title,
+      description: row.description ?? null,
+      badgeText: row.badge_text ?? null,
+      fuelType: row.fuel_type as FuelType | 'all',
+      discountType: row.discount_type,
+      discountValue: row.discount_value ? parseFloat(row.discount_value) : null,
+      expiresAt: row.expires_at ?? null,
+      createdAt: row.created_at,
+    }));
+  } catch {
+    return [];
   }
 }
 

@@ -11,7 +11,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { MarketplaceCard } from '@/components/station/MarketplaceCard';
-import { fetchStations } from '@/services/api';
+import { fetchStations, fetchPromotions } from '@/services/api';
 import { FUEL_TYPE_LABELS } from '@/utils/constants';
 import {
   getCheapestPrice,
@@ -20,7 +20,7 @@ import {
   sortStationsByPrice,
   formatPrice,
 } from '@/utils/fuel';
-import { FuelType } from '@/types';
+import { FuelType, Promotion } from '@/types';
 
 const FUEL_TYPES: FuelType[] = ['unleaded95', 'unleaded98', 'diesel', 'kerosene'];
 
@@ -40,36 +40,57 @@ const FUEL_EMOJIS: Record<FuelType, string> = {
   lpg:        '💨',
 };
 
-// Placeholder partner promotions (will be replaced by real DB data)
-const PARTNER_PROMOS = [
-  {
-    id: 'promo1',
-    brand: 'EKO',
-    title: 'EKO Extra Points Weekend',
-    desc: 'Earn 3x loyalty points on all purchases this weekend',
-    badge: '3× Points',
-    color: '#006B35',
-    expires: 'Sun 23:59',
-  },
-  {
-    id: 'promo2',
-    brand: 'PETROLINA',
-    title: 'Free Car Wash',
-    desc: 'Fill up 30L or more and get a free exterior wash',
-    badge: 'Free wash',
-    color: '#003087',
-    expires: 'Limited offer',
-  },
-  {
-    id: 'promo3',
-    brand: 'SHELL',
-    title: 'Shell Café Combo',
-    desc: 'Buy any fuel and get 20% off your coffee at Shell Café',
-    badge: '20% off',
-    color: '#C8102E',
-    expires: 'Ongoing',
-  },
-];
+const BRAND_COLORS: Record<string, string> = {
+  EKO:       '#006B35',
+  SHELL:     '#C8102E',
+  PETROLINA: '#003087',
+  ESSO:      '#C8102E',
+  BP:        '#007A33',
+  TOTAL:     '#C8102E',
+  LUKOIL:    '#FF6600',
+};
+
+function getBrandColor(brand: string): string {
+  return BRAND_COLORS[brand.toUpperCase()] ?? '#1F2937';
+}
+
+function PromoCard({ promo, onPress }: { promo: Promotion; onPress: () => void }) {
+  const color = getBrandColor(promo.stationBrand);
+  const expires = promo.expiresAt
+    ? new Date(promo.expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    : 'Ongoing';
+
+  return (
+    <TouchableOpacity
+      style={[styles.promoCard, { backgroundColor: color }]}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      {promo.badgeText && (
+        <View style={styles.promoBadge}>
+          <Text style={styles.promoBadgeText}>{promo.badgeText}</Text>
+        </View>
+      )}
+      <View style={styles.promoBrandRow}>
+        <View style={styles.promoBrandCircle}>
+          <Text style={styles.promoBrandInitials}>
+            {promo.stationBrand.slice(0, 2)}
+          </Text>
+        </View>
+        <Text style={styles.promoBrandName}>{promo.stationBrand}</Text>
+      </View>
+      <Text style={styles.promoTitle} numberOfLines={2}>{promo.title}</Text>
+      {promo.description ? (
+        <Text style={styles.promoDesc} numberOfLines={2}>{promo.description}</Text>
+      ) : null}
+      <Text style={styles.promoStation} numberOfLines={1}>{promo.stationName}</Text>
+      <View style={styles.promoFooter}>
+        <FontAwesome name="clock-o" size={11} color="rgba(255,255,255,0.6)" />
+        <Text style={styles.promoExpires}> {expires}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 export default function DealsScreen() {
   const router = useRouter();
@@ -81,12 +102,12 @@ export default function DealsScreen() {
     staleTime: 15 * 60 * 1000,
   });
 
-  const avgPrice = useMemo(
-    () => getAveragePrice(stations, selectedFuel),
-    [stations, selectedFuel]
-  );
+  const { data: promotions = [], isLoading: promosLoading } = useQuery({
+    queryKey: ['promotions'],
+    queryFn: fetchPromotions,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  // Price deals per fuel type: stations beating avg by thresholds
   const dealTiers = useMemo(
     () =>
       FUEL_TYPES.map((ft) => {
@@ -105,7 +126,6 @@ export default function DealsScreen() {
     [stations]
   );
 
-  // Deals for selected fuel type (for the main horizontal scroll)
   const currentDeals = useMemo(
     () => dealTiers.find((d) => d.fuelType === selectedFuel),
     [dealTiers, selectedFuel]
@@ -125,46 +145,44 @@ export default function DealsScreen() {
         </Text>
       </View>
 
-      {/* ── Partner promotions ──────────────────────────────── */}
+      {/* ── Operator promotions ─────────────────────────────── */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>🤝 Partner Offers</Text>
-          <View style={styles.comingSoonBadge}>
-            <Text style={styles.comingSoonText}>Partner program launching soon</Text>
-          </View>
+          <Text style={styles.sectionTitle}>🤝 Station Offers</Text>
+          {promotions.length > 0 && (
+            <View style={styles.dealCountBadge}>
+              <Text style={styles.dealCountText}>{promotions.length} live</Text>
+            </View>
+          )}
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.promoScroll}
-        >
-          {PARTNER_PROMOS.map((promo) => (
-            <TouchableOpacity
-              key={promo.id}
-              style={[styles.promoCard, { backgroundColor: promo.color }]}
-              activeOpacity={0.85}
-            >
-              {/* Badge */}
-              <View style={styles.promoBadge}>
-                <Text style={styles.promoBadgeText}>{promo.badge}</Text>
-              </View>
-              <View style={styles.promoBrandRow}>
-                <View style={styles.promoBrandCircle}>
-                  <Text style={styles.promoBrandInitials}>
-                    {promo.brand.slice(0, 2)}
-                  </Text>
-                </View>
-                <Text style={styles.promoBrandName}>{promo.brand}</Text>
-              </View>
-              <Text style={styles.promoTitle}>{promo.title}</Text>
-              <Text style={styles.promoDesc}>{promo.desc}</Text>
-              <View style={styles.promoFooter}>
-                <FontAwesome name="clock-o" size={11} color="rgba(255,255,255,0.6)" />
-                <Text style={styles.promoExpires}> {promo.expires}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+
+        {promosLoading ? (
+          <View style={styles.promoPlaceholder}>
+            <Text style={styles.promoPlaceholderText}>Loading offers…</Text>
+          </View>
+        ) : promotions.length === 0 ? (
+          <View style={styles.promoPlaceholder}>
+            <Text style={styles.promoPlaceholderEmoji}>🏷️</Text>
+            <Text style={styles.promoPlaceholderTitle}>No active offers yet</Text>
+            <Text style={styles.promoPlaceholderText}>
+              Station operators can post deals from the Lepidus Operator Portal
+            </Text>
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.promoScroll}
+          >
+            {promotions.map((promo) => (
+              <PromoCard
+                key={promo.id}
+                promo={promo}
+                onPress={() => router.push(`/station/${promo.stationId}`)}
+              />
+            ))}
+          </ScrollView>
+        )}
       </View>
 
       {/* ── Fuel type switcher ──────────────────────────────── */}
@@ -203,7 +221,6 @@ export default function DealsScreen() {
           })}
         </ScrollView>
 
-        {/* Market context for selected fuel */}
         {currentDeals && currentDeals.avg != null && currentDeals.min != null && (
           <View style={styles.marketContext}>
             <View style={styles.marketContextStat}>
@@ -229,7 +246,6 @@ export default function DealsScreen() {
           </View>
         )}
 
-        {/* Deal cards */}
         {currentDeals && currentDeals.deals.length > 0 ? (
           <ScrollView
             horizontal
@@ -285,15 +301,13 @@ export default function DealsScreen() {
         </View>
       </View>
 
-      {/* ── CTA to become partner ───────────────────────────── */}
+      {/* ── CTA for operators ───────────────────────────────── */}
       <View style={styles.partnerBanner}>
         <Text style={styles.partnerBannerEmoji}>🚀</Text>
         <View style={{ flex: 1 }}>
-          <Text style={styles.partnerBannerTitle}>
-            Attract more customers
-          </Text>
+          <Text style={styles.partnerBannerTitle}>Attract more customers</Text>
           <Text style={styles.partnerBannerDesc}>
-            Station operators: post deals, earn reviews, get featured
+            Station operators: post deals and get featured here
           </Text>
         </View>
         <TouchableOpacity style={styles.partnerBannerBtn}>
@@ -324,8 +338,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     marginBottom: 14,
-    flexWrap: 'wrap',
-    gap: 8,
   },
   sectionTitle: {
     fontSize: 17,
@@ -335,17 +347,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 14,
   },
-  comingSoonBadge: {
-    backgroundColor: '#FEF3C7',
+  dealCountBadge: {
+    backgroundColor: '#DCFCE7',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#BBF7D0',
   },
-  comingSoonText: { fontSize: 10, fontWeight: '700', color: '#92400e' },
+  dealCountText: { fontSize: 11, fontWeight: '700', color: '#15803D' },
 
-  // Partner promos
+  // Promo placeholder
+  promoPlaceholder: {
+    marginHorizontal: 20,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 28,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(229,231,235,0.5)',
+    gap: 6,
+  },
+  promoPlaceholderEmoji: { fontSize: 28, marginBottom: 4 },
+  promoPlaceholderTitle: { fontSize: 15, fontWeight: '700', color: '#374151' },
+  promoPlaceholderText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    lineHeight: 17,
+  },
+
+  // Promo cards
   promoScroll: { paddingLeft: 20, paddingRight: 8 },
   promoCard: {
     width: 220,
@@ -353,6 +385,7 @@ const styles = StyleSheet.create({
     padding: 18,
     marginRight: 12,
     overflow: 'hidden',
+    minHeight: 160,
   },
   promoBadge: {
     position: 'absolute',
@@ -391,7 +424,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255,255,255,0.75)',
     lineHeight: 17,
-    marginBottom: 14,
+    marginBottom: 8,
+  },
+  promoStation: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.55)',
+    fontWeight: '600',
+    marginBottom: 10,
   },
   promoFooter: { flexDirection: 'row', alignItems: 'center' },
   promoExpires: { fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: '500' },
@@ -410,11 +449,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(229,231,235,0.5)',
   },
   fuelTabEmoji: { fontSize: 14 },
-  fuelTabLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#374151',
-  },
+  fuelTabLabel: { fontSize: 13, fontWeight: '700', color: '#374151' },
   fuelTabBadge: {
     width: 18,
     height: 18,
@@ -459,7 +494,6 @@ const styles = StyleSheet.create({
 
   cardScroll: { paddingLeft: 20, paddingRight: 8 },
 
-  // No deals
   noDealsCard: {
     marginHorizontal: 20,
     backgroundColor: '#fff',
@@ -479,7 +513,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // All fuel table
   allFuelTable: {
     marginHorizontal: 16,
     backgroundColor: '#fff',
@@ -502,7 +535,6 @@ const styles = StyleSheet.create({
   allFuelPrice: { fontSize: 17, fontWeight: '800', letterSpacing: -0.4 },
   allFuelSaving: { fontSize: 10, color: '#16a34a', fontWeight: '600', marginTop: 2 },
 
-  // Partner banner
   partnerBanner: {
     flexDirection: 'row',
     alignItems: 'center',
