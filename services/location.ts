@@ -6,7 +6,7 @@ export interface UserLocation {
 }
 
 // Set to true to simulate being in Cyprus (for development outside Cyprus)
-const SIMULATE_CYPRUS_LOCATION = true;
+const SIMULATE_CYPRUS_LOCATION = __DEV__;
 
 // Simulated location: central Nicosia
 const SIMULATED_LOCATION: UserLocation = {

@@ -3,14 +3,16 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { ActivityIndicator, Platform, View } from 'react-native';
+import * as Notifications from 'expo-notifications';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { QueryProvider } from '@/components/providers/QueryProvider';
 import { useFavoritesStore } from '@/stores/favorites';
 import { useAuthStore } from '@/stores/auth';
 import { supabase } from '@/services/supabase';
+import { registerForPushNotifications, savePushToken } from '@/services/notifications';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -61,6 +63,8 @@ function RootLayoutNav() {
   const router = useRouter();
   const segments = useSegments();
   const { session, isLoading } = useAuthStore();
+  const notificationListener = useRef<Notifications.EventSubscription>();
+  const responseListener = useRef<Notifications.EventSubscription>();
 
   useEffect(() => {
     if (isLoading) return; // still bootstrapping — don't redirect yet
@@ -72,6 +76,32 @@ function RootLayoutNav() {
       router.replace('/(tabs)');
     }
   }, [session, isLoading, segments]);
+
+  // Register push notifications when user signs in
+  useEffect(() => {
+    if (!session || Platform.OS === 'web') return;
+
+    registerForPushNotifications().then((token) => {
+      if (token) savePushToken(token);
+    });
+
+    // Handle notification taps → navigate to station
+    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data;
+      if (data?.stationId) {
+        router.push(`/station/${data.stationId}`);
+      }
+    });
+
+    return () => {
+      if (notificationListener.current) {
+        Notifications.removeNotificationSubscription(notificationListener.current);
+      }
+      if (responseListener.current) {
+        Notifications.removeNotificationSubscription(responseListener.current);
+      }
+    };
+  }, [session]);
 
   // Show a spinner while the session is being loaded from storage
   if (isLoading) {

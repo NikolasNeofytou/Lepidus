@@ -15,6 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.lepidus.app",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Lepidus uses your location to find nearby gas stations and sort by distance."
       },
@@ -23,6 +24,7 @@
       }
     },
     "android": {
+      "package": "com.lepidus.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -47,6 +49,13 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Lepidus uses your location to find nearby gas stations."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#16a34a"
         }
       ]
     ],
