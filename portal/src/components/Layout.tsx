@@ -10,6 +10,7 @@ const NAV = [
   { to: '/promotions', icon: '🏷️', label: 'Deals'        },
   { to: '/station',    icon: '⛽', label: 'My Station'   },
   { to: '/claim',      icon: '🔗', label: 'Claim Station' },
+  { to: '/billing',   icon: '💳', label: 'Billing'       },
 ];
 
 export default function Layout({ session }: Props) {

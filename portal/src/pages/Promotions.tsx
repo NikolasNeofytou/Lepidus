@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase, Promotion, Station, FUEL_LABELS } from '../lib/supabase';
 
 const DISCOUNT_TYPES = [
@@ -23,6 +24,7 @@ const defaultForm = {
 };
 
 export default function Promotions() {
+  const navigate = useNavigate();
   const [stations, setStations] = useState<Station[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [form, setForm] = useState(defaultForm);
@@ -30,6 +32,7 @@ export default function Promotions() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [tier, setTier] = useState<'free' | 'pro'>('free');
 
   useEffect(() => { load(); }, []);
 
@@ -37,6 +40,14 @@ export default function Promotions() {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+
+    // Load subscription tier
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('subscription_tier')
+      .eq('user_id', user.id)
+      .single();
+    if (profile?.subscription_tier) setTier(profile.subscription_tier as 'free' | 'pro');
 
     const { data: links } = await supabase
       .from('operator_stations').select('station_id').eq('operator_id', user.id);
@@ -99,12 +110,31 @@ export default function Promotions() {
           <p className="text-gray-500 mt-1">Post deals that appear in the Lepidus Deals tab</p>
         </div>
         <button
-          onClick={() => setShowForm(v => !v)}
+          onClick={() => {
+            if (tier === 'free' && promotions.filter(p => p.is_active).length >= 1 && !showForm) {
+              navigate('/billing');
+              return;
+            }
+            setShowForm(v => !v);
+          }}
           className="bg-brand-600 hover:bg-brand-700 text-white font-bold px-5 py-2.5 rounded-xl transition-colors shadow-lg shadow-brand-600/30"
         >
           {showForm ? 'Cancel' : '+ New Deal'}
         </button>
       </div>
+
+      {/* Free tier limit banner */}
+      {tier === 'free' && promotions.filter(p => p.is_active).length >= 1 && !showForm && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between">
+          <div>
+            <p className="font-bold text-amber-800 text-sm">Free plan limit reached</p>
+            <p className="text-amber-600 text-xs mt-0.5">Upgrade to Pro for unlimited promotions</p>
+          </div>
+          <button onClick={() => navigate('/billing')} className="px-4 py-2 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-gray-800 transition-colors">
+            Upgrade
+          </button>
+        </div>
+      )}
 
       {/* New deal form */}
       {showForm && (

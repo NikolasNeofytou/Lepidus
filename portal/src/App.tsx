@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Promotions from './pages/Promotions';
 import StationManager from './pages/StationManager';
 import ClaimStation from './pages/ClaimStation';
+import Billing from './pages/Billing';
 import Layout from './components/Layout';
 
 export default function App() {
@@ -44,6 +45,7 @@ export default function App() {
           <Route path="/promotions"  element={<Promotions />} />
           <Route path="/station"     element={<StationManager />} />
           <Route path="/claim"       element={<ClaimStation />} />
+          <Route path="/billing"    element={<Billing />} />
         </Route>
       </Routes>
     </BrowserRouter>
