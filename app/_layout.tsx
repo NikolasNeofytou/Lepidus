@@ -13,6 +13,7 @@ import { useFavoritesStore } from '@/stores/favorites';
 import { useAuthStore } from '@/stores/auth';
 import { supabase } from '@/services/supabase';
 import { registerForPushNotifications, savePushToken } from '@/services/notifications';
+import { initSentry } from '@/services/sentry';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -21,6 +22,7 @@ export const unstable_settings = {
 };
 
 SplashScreen.preventAutoHideAsync();
+initSentry();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({

@@ -8,6 +8,8 @@ import Promotions from './pages/Promotions';
 import StationManager from './pages/StationManager';
 import ClaimStation from './pages/ClaimStation';
 import Billing from './pages/Billing';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
 import Layout from './components/Layout';
 
 export default function App() {
@@ -40,6 +42,8 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={!session ? <Login /> : <Navigate to="/" replace />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
         <Route element={session ? <Layout session={session} /> : <Navigate to="/login" replace />}>
           <Route path="/"            element={<Dashboard />} />
           <Route path="/promotions"  element={<Promotions />} />

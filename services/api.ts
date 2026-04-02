@@ -1,6 +1,31 @@
 import { Station, FuelType, Promotion } from '@/types';
+import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import { MOCK_STATIONS } from './mockData';
+
+const CACHE_KEY = 'lepidus_stations_cache';
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+async function getCachedStations(): Promise<Station[] | null> {
+  if (Platform.OS === 'web') return null;
+  try {
+    const raw = await AsyncStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const { data, timestamp } = JSON.parse(raw);
+    if (Date.now() - timestamp > CACHE_TTL) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+async function cacheStations(stations: Station[]): Promise<void> {
+  if (Platform.OS === 'web') return;
+  try {
+    await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ data: stations, timestamp: Date.now() }));
+  } catch {}
+}
 
 export async function fetchStations(): Promise<Station[]> {
   try {
@@ -17,7 +42,7 @@ export async function fetchStations(): Promise<Station[]> {
 
     if (pricesError) throw pricesError;
 
-    return stations.map((s: any) => ({
+    const result = stations.map((s: any) => ({
       id: s.id,
       name: s.name,
       brand: s.brand,
@@ -33,8 +58,13 @@ export async function fetchStations(): Promise<Station[]> {
           updatedAt: p.fetched_at,
         })),
     }));
+
+    cacheStations(result);
+    return result;
   } catch (error) {
-    console.warn('Supabase fetch failed, using mock data:', error);
+    console.warn('Supabase fetch failed, trying cache:', error);
+    const cached = await getCachedStations();
+    if (cached) return cached;
     return MOCK_STATIONS;
   }
 }

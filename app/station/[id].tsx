@@ -10,6 +10,7 @@ import {
   Alert,
   TextInput,
   Modal,
+  Share,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
@@ -99,6 +100,18 @@ export default function StationDetailScreen() {
   const handleFavorite = () => {
     if (!isFavorite(station.id)) logStationEvent(station.id, 'favorite');
     toggleFavorite(station.id);
+  };
+
+  const handleShare = async () => {
+    const cheapest = station.prices.length > 0
+      ? Math.min(...station.prices.map(p => p.price))
+      : null;
+    const priceText = cheapest ? ` — from €${cheapest.toFixed(3)}/L` : '';
+    try {
+      await Share.share({
+        message: `${station.name} (${station.brand})${priceText}\n${station.address}, ${station.district}\nhttps://lepidus.cy/station/${station.id}`,
+      });
+    } catch {}
   };
 
   const openAlertModal = (fuelType: FuelType, currentPrice: number) => {
@@ -305,6 +318,11 @@ export default function StationDetailScreen() {
             <Text style={[styles.favBtnText, favorite && { color: '#ef4444' }]}>
               {favorite ? 'Saved' : 'Save Station'}
             </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.favBtn} onPress={handleShare} activeOpacity={0.8}>
+            <FontAwesome name="share" size={16} color="#6b7280" />
+            <Text style={styles.favBtnText}>Share</Text>
           </TouchableOpacity>
         </View>
 

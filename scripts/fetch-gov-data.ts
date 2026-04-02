@@ -8,7 +8,10 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const SUPABASE_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+// Prefer service_role key (bypasses RLS) for production scraper;
+// fall back to anon key for local development
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+  ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const GOV_API_SUBMIT = 'https://aztest.cyprus.gov.cy/gg/submission';
